@@ -1,0 +1,105 @@
+{
+  "name": "credit_underwriting_policy",
+  "version": "2.4.1",
+  "nodes": [
+    {
+      "id": "input_normalization",
+      "name": "Input Normalization",
+      "type": "expression",
+      "content": {
+        "expressions": [
+          { "key": "dti_ratio", "value": "monthly_debt_obligations / monthly_income" },
+          { "key": "is_adult", "value": "applicant_age >= 21 and applicant_age <= 60" }
+        ]
+      }
+    },
+    {
+      "id": "underwriting_decision_table",
+      "name": "Base Decision Table",
+      "type": "decisionTable",
+      "content": {
+        "hitPolicy": "first",
+        "inputs": [
+          { "id": "in_adult", "name": "Age Valid", "field": "is_adult" },
+          { "id": "in_score", "name": "Credit Score", "field": "credit_score" },
+          { "id": "in_dti", "name": "DTI Ratio", "field": "dti_ratio" },
+          { "id": "in_delinq", "name": "Past Delinquency 90DPD", "field": "delinquency_history_count" }
+        ],
+        "outputs": [
+          { "id": "out_decision", "name": "Decision", "field": "decision" },
+          { "id": "out_tier", "name": "Score Tier", "field": "score_tier" },
+          { "id": "out_max_limit", "name": "Max Approved Limit IDR", "field": "max_limit_idr" },
+          { "id": "out_reason", "name": "Audit Reason", "field": "reason_code" }
+        ],
+        "rules": [
+          {
+            "_comment": "Hard Restriction: Underage or Above Maximum Age",
+            "in_adult": "false",
+            "in_score": "-",
+            "in_dti": "-",
+            "in_delinq": "-",
+            "out_decision": "AUTO_REJECT",
+            "out_tier": "TIER_RESTRICTED",
+            "out_max_limit": 0,
+            "out_reason": "POL_AGE_RESTRICTION"
+          },
+          {
+            "_comment": "Hard Restriction: Excessive DTI Ratio (> 50%)",
+            "in_adult": "true",
+            "in_score": "-",
+            "in_dti": "> 0.50",
+            "in_delinq": "-",
+            "out_decision": "AUTO_REJECT",
+            "out_tier": "TIER_DTI_EXCEEDED",
+            "out_max_limit": 0,
+            "out_reason": "POL_DTI_EXCEEDED"
+          },
+          {
+            "_comment": "Tier A - Prime Borrower Approval",
+            "in_adult": "true",
+            "in_score": ">= 750",
+            "in_dti": "<= 0.35",
+            "in_delinq": "== 0",
+            "out_decision": "AUTO_APPROVE",
+            "out_tier": "TIER_A_PRIME",
+            "out_max_limit": 50000000,
+            "out_reason": "POL_PRIME_AUTO_APPROVAL"
+          },
+          {
+            "_comment": "Tier B - Standard Acceptable Risk",
+            "in_adult": "true",
+            "in_score": ">= 680",
+            "in_dti": "<= 0.40",
+            "in_delinq": "== 0",
+            "out_decision": "AUTO_APPROVE",
+            "out_tier": "TIER_B_STANDARD",
+            "out_max_limit": 30000000,
+            "out_reason": "POL_STANDARD_AUTO_APPROVAL"
+          },
+          {
+            "_comment": "Tier C - Elevated Risk, Requires Underwriter Review",
+            "in_adult": "true",
+            "in_score": ">= 600",
+            "in_dti": "<= 0.50",
+            "in_delinq": "<= 1",
+            "out_decision": "MANUAL_REVIEW",
+            "out_tier": "TIER_C_ELEVATED",
+            "out_max_limit": 15000000,
+            "out_reason": "POL_MANUAL_REVIEW_REQUIRED"
+          },
+          {
+            "_comment": "Default Fallback - Low Credit Score or Repeated Delinquency",
+            "in_adult": "true",
+            "in_score": "-",
+            "in_dti": "-",
+            "in_delinq": "-",
+            "out_decision": "AUTO_REJECT",
+            "out_tier": "TIER_SUBPRIME",
+            "out_max_limit": 0,
+            "out_reason": "POL_SUBPRIME_SCORE_OR_DELINQUENCY"
+          }
+        ]
+      }
+    }
+  ]
+}
